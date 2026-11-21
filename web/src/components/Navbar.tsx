@@ -36,7 +36,7 @@ export function Navbar() {
                 <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                 <strong className="text-white">{user.displayName || user.email}</strong>
                 {user.isDevUser && (
-                  <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 text-[10px] border border-amber-500/20">
+                  <span data-dev-badge className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 text-[10px] border border-amber-500/20">
                     Dev
                   </span>
                 )}

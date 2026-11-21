@@ -25,7 +25,7 @@ export function devMockTokensAllowed(): boolean {
 export function decodeDevMockToken(token: string): VerifiedUser | null {
   if (!devMockTokensAllowed() || !token.startsWith(DEV_MOCK_PREFIX)) return null;
   const suffix = token.slice(DEV_MOCK_PREFIX.length).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'alex';
-  const name = suffix === 'alex' ? 'Alex Beatmaker' : `Dev ${suffix.charAt(0).toUpperCase()}${suffix.slice(1)}`;
+  const name = `${suffix.charAt(0).toUpperCase()}${suffix.slice(1)}`;
   return { uid: `dev-user-${suffix}`, name, email: `${suffix}@downbeat.dev`, source: 'web' };
 }
 

@@ -28,6 +28,12 @@ function describe(e: SessionEvent): { text: string; Icon: typeof Activity; tone:
       return { text: `${who} played ${Math.round(p.activeSeconds)}s of audio (peak ${p.peakDb} dB)`, Icon: Activity, tone: 'text-indigo-300' };
     case 'midi_activity':
       return { text: `${who} played ${p.notes} MIDI notes`, Icon: Music2, tone: 'text-cyan-300' };
+    case 'clip_edit': {
+      const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      const note = typeof p.pitch === 'number' ? `${names[p.pitch % 12]}${Math.floor(p.pitch / 12) - 1}` : 'a note';
+      const verb = p.action === 'add' ? 'added' : p.action === 'remove' ? 'removed' : p.action === 'clear' ? 'cleared' : 'moved';
+      return { text: p.action === 'clear' ? `${who} cleared the shared clip` : `${who} ${verb} ${note} in the shared clip`, Icon: Music2, tone: 'text-emerald-300' };
+    }
     case 'send_mute':
       return { text: `${who} ${p.muted ? 'muted' : 'unmuted'} their send`, Icon: p.muted ? VolumeX : Volume2, tone: 'text-gray-300' };
     case 'param_change':
@@ -231,10 +237,14 @@ function SessionContent() {
                   {c.userName}
                   {c.userId === user.uid && <span className="text-gray-500 font-normal"> (you)</span>}
                 </div>
-                <dl className="grid grid-cols-3 gap-2 text-center mb-3">
+                <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center mb-3">
                   <div>
                     <dt className="text-[11px] text-gray-500">Audio played</dt>
                     <dd className="text-sm font-bold text-indigo-300">{formatSeconds(c.audioActiveSeconds)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-gray-500">Clip notes</dt>
+                    <dd className="text-sm font-bold text-emerald-300">{c.clipNotesAdded ?? 0}</dd>
                   </div>
                   <div>
                     <dt className="text-[11px] text-gray-500">MIDI notes</dt>

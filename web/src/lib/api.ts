@@ -85,6 +85,7 @@ export interface UserContribution {
   types: Record<string, number>;
   audioActiveSeconds: number;
   midiNotes: number;
+  clipNotesAdded?: number;
   tempoChanges: number;
   notes: string[];
   firstSeen: number;

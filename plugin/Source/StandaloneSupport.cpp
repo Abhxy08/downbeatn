@@ -55,4 +55,32 @@ void installStandaloneAudioFixes() {
         fix = std::make_unique<FirstStereoPairFix>(holder->deviceManager);
 }
 
+/**
+ * Standalone only (demo autopilot): closes the audio input channels so no microphone sound is
+ * monitored or streamed, then restores the previous input selection when re-enabled.
+ */
+void setStandaloneInputEnabled(bool enabled) {
+    static juce::BigInteger savedInputs;
+    static bool saved = false, savedUseDefault = true;
+    if (!juce::JUCEApplicationBase::isStandaloneApp()) return;
+    auto* holder = juce::StandalonePluginHolder::getInstance();
+    if (holder == nullptr) return;
+    auto& dm = holder->deviceManager;
+    auto setup = dm.getAudioDeviceSetup();
+    if (!enabled && !saved) {
+        savedInputs = setup.inputChannels;
+        savedUseDefault = setup.useDefaultInputChannels;
+        saved = true;
+        setup.inputChannels.clear();
+        setup.useDefaultInputChannels = false;
+    } else if (enabled && saved) {
+        setup.inputChannels = savedInputs;
+        setup.useDefaultInputChannels = savedUseDefault;
+        saved = false;
+    } else {
+        return;
+    }
+    dm.setAudioDeviceSetup(setup, true);
+}
+
 } // namespace downbeat

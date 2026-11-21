@@ -6,6 +6,7 @@
 #include "LatencyMeter.h"
 #include "DownBeatLookAndFeel.h"
 #include "SharedClipEditor.h"
+#include "Autopilot.h"
 
 namespace downbeat {
 
@@ -80,6 +81,9 @@ private:
     juce::TextButton clipTabButton, agentsTabButton;
     bool showClipTab{true};
     void showTab(bool clip);
+
+    std::unique_ptr<Autopilot> autopilot; // dev aid: DOWNBEAT_AUTOPILOT script (demo recording)
+    void setupAutopilot();
 
     // AI agents
     juce::GroupComponent aiAgentsGroup;

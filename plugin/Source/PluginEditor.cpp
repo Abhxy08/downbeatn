@@ -4,6 +4,7 @@
 namespace downbeat {
 
 void installStandaloneAudioFixes(); // StandaloneSupport.cpp
+void setStandaloneInputEnabled(bool enabled);
 
 namespace {
 constexpr int kWidth = 760;
@@ -53,7 +54,8 @@ DownBeatAudioProcessorEditor::DownBeatAudioProcessorEditor(DownBeatAudioProcesso
                 ed.currentPairUrl = pairUrl;
                 ed.pairingCodeDisplay.setText(code, juce::dontSendNotification);
                 ed.setPairingVisible(true);
-                juce::URL(pairUrl).launchInDefaultBrowser();
+                if (ed.autopilot != nullptr) Autopilot::log("pair-code " + code);
+                else juce::URL(pairUrl).launchInDefaultBrowser();
             } else {
                 ed.signInButton.setEnabled(true);
                 ed.signInButton.setButtonText("Sign In");
@@ -367,6 +369,7 @@ DownBeatAudioProcessorEditor::DownBeatAudioProcessorEditor(DownBeatAudioProcesso
 
     setSize(kWidth, kHeightCompact);
     startTimerHz(10);
+    setupAutopilot();
 
     // Developer aid: DOWNBEAT_UI_SNAPSHOT=/path/file.png renders the editor to a PNG
     // (and quits the Standalone app) so the UI can be reviewed without a screen grab.
@@ -389,6 +392,34 @@ DownBeatAudioProcessorEditor::~DownBeatAudioProcessorEditor() {
     stopTimer();
     tooltips.setLookAndFeel(nullptr);
     setLookAndFeel(nullptr);
+}
+
+void DownBeatAudioProcessorEditor::setupAutopilot() {
+    const auto path = juce::SystemStats::getEnvironmentVariable("DOWNBEAT_AUTOPILOT", {});
+    if (path.isEmpty() || !juce::File(path).existsAsFile()) return;
+
+    // Stable IDs for the controls a script may drive
+    const std::pair<juce::Component*, const char*> ids[] = {
+        { &signInButton, "signIn" }, { &inviteCodeInput, "inviteCode" }, { &joinSessionButton, "join" },
+        { &createSessionButton, "create" }, { &leaveSessionButton, "leave" }, { &noteInput, "noteText" },
+        { &logNoteButton, "logNote" }, { &useMyTempoButton, "useMyTempo" }, { &clipTabButton, "clipTab" },
+        { &agentsTabButton, "agentsTab" }, { &beatJamPromptInput, "beatJamPrompt" }, { &beatJamStartButton, "beatJamStart" },
+        { &beatJamStopButton, "beatJamStop" }, { &mixDoctorButton, "mixDoctor" }, { &creditsAgentButton, "credits" },
+        { &approveCreditsButton, "approveCredits" },
+    };
+    for (auto& [c, id] : ids) c->setComponentID(id);
+
+    autopilot = std::make_unique<Autopilot>(*this, juce::File(path));
+    autopilot->addCommand("note", [this](const juce::StringArray& a) { // step length pitch [velocity]
+        processorRef.getNetworkClient().clipAdd(a[0].getIntValue(), juce::jmax(1, a[1].getIntValue()), a[2].getIntValue(),
+                                                a.size() > 3 ? a[3].getIntValue() : 100);
+    });
+    autopilot->addCommand("preview", [this](const juce::StringArray& a) { processorRef.setClipPreview(a[0] != "off"); });
+    autopilot->addCommand("mic", [](const juce::StringArray& a) { setStandaloneInputEnabled(a[0] != "off"); });
+    autopilot->addCommand("quit", [](const juce::StringArray&) {
+        if (auto* app = juce::JUCEApplicationBase::getInstance()) app->systemRequestedQuit();
+    });
+    autopilot->start();
 }
 
 void DownBeatAudioProcessorEditor::showTab(bool clip) {
