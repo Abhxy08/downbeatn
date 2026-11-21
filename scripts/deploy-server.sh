@@ -5,7 +5,11 @@ load_env
 require_cmd gcloud "Install the Google Cloud CLI: https://cloud.google.com/sdk/docs/install"
 require_secret JWT_SECRET
 require_secret RELAY_SECRET
-require_secret GEMINI_API_KEY 20
+if [[ -z "${GEMINI_API_KEY:-}" ]]; then
+  echo "WARNING: GEMINI_API_KEY is empty: deploying without AI agents. Add it later with scripts/set-gemini-key.sh" >&2
+else
+  require_secret GEMINI_API_KEY 20
+fi
 [[ -n "${PUBLIC_RELAY_IP:-}" ]] || die "PUBLIC_RELAY_IP is empty: run scripts/deploy-relay.sh first"
 
 SERVICE=downbeat-server
@@ -23,6 +27,14 @@ for role in roles/datastore.user roles/storage.objectAdmin; do
   gcloud projects add-iam-policy-binding "$GCP_PROJECT" --member "serviceAccount:$SA" --role "$role" --condition=None >/dev/null
 done
 
+# New projects build with the Compute default service account, which needs the builder role
+PROJECT_NUMBER=$(gcloud projects describe "$GCP_PROJECT" --format='value(projectNumber)')
+BUILD_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+gcloud projects get-iam-policy "$GCP_PROJECT" --flatten='bindings[].members' \
+  --filter="bindings.members:$BUILD_SA AND bindings.role:roles/cloudbuild.builds.builder" --format='value(bindings.role)' | grep -q . ||
+  gcloud projects add-iam-policy-binding "$GCP_PROJECT" --condition=None >/dev/null \
+    --member "serviceAccount:$BUILD_SA" --role roles/cloudbuild.builds.builder
+
 NODE_ENV=production
 FIREBASE_PROJECT_ID="$GCP_PROJECT"
 FIREBASE_STORAGE_BUCKET="${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-${GCP_PROJECT}.firebasestorage.app}"
@@ -36,7 +48,7 @@ env_yaml "$ENV_YAML" NODE_ENV JWT_SECRET RELAY_SECRET GEMINI_API_KEY GEMINI_MODE
 # NOTE: sessions, presence and Beat Jam streams live in memory, so the MVP runs exactly ONE
 # instance (max-instances=1) with CPU always allocated (WebSocket + Lyria streaming).
 info "Deploying $SERVICE to Cloud Run ($GCP_REGION) — this builds the image with Cloud Build"
-(cd "$ROOT" && gcloud run deploy "$SERVICE" --source . --region "$GCP_REGION" \
+(cd "$ROOT" && gcloud run deploy "$SERVICE" --source . --region "$GCP_REGION" --quiet \
   --service-account "$SA" --allow-unauthenticated \
   --env-vars-file "$ENV_YAML" \
   --min-instances 1 --max-instances 1 --no-cpu-throttling \

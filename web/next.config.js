@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   output: process.env.NEXT_EXPORT ? 'export' : undefined,
-  // Keep export builds out of the dev server's .next folder
+  // Export builds go to web/out (Firebase Hosting's folder), never the dev server's .next
   distDir: process.env.NEXT_EXPORT ? '.next-export' : '.next',
   images: {
     unoptimized: true,

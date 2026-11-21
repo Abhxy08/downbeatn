@@ -66,7 +66,9 @@ gcloud compute ssh "$VM" --zone "$RELAY_ZONE" --command 'mkdir -p ~/relay-upload
 gcloud compute scp --zone "$RELAY_ZONE" "$STAGE"/* "$VM":~/relay-upload/
 gcloud compute ssh "$VM" --zone "$RELAY_ZONE" --command '
   set -e
-  command -v node >/dev/null || (sudo apt-get update && sudo apt-get install -y nodejs npm)
+  # first boot: the startup script may still be installing node/npm (slow on e2-micro)
+  for i in $(seq 1 60); do command -v npm >/dev/null && ! pgrep -x apt-get >/dev/null && break; sleep 5; done
+  command -v npm >/dev/null || (sudo apt-get update && sudo apt-get install -y nodejs npm)
   sudo mkdir -p /opt/downbeat-relay
   sudo cp ~/relay-upload/*.js ~/relay-upload/package.json /opt/downbeat-relay/
   sudo install -m 600 ~/relay-upload/relay.env /etc/downbeat-relay.env
