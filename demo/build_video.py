@@ -102,7 +102,18 @@ listing = os.path.join(SEG, 'list.txt')
 open(listing, 'w').write(''.join(f"file '{p}'\n" for p in segments))
 joined = os.path.join(SEG, 'joined.mp4')
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', listing, '-c', 'copy', joined], check=True)
+# Music bed: the real Beat Jam (Lyria RealTime) audio from the recording, looped quietly under the
+# parts with no sound of their own, and faded out where the clip and Beat Jam are heard directly.
+bed = os.path.join(SEG, 'bed.wav')
+subprocess.run(['ffmpeg', '-v', 'error', '-y', '-ss', '34', '-t', '20', '-i', JAM, '-vn', '-ac', '2', '-ar', '48000',
+                '-af', 'afade=in:d=0.5,afade=out:st=19.5:d=0.5', bed], check=True)
+live_start = 4.5 + 3.5 + 13.5          # shared-clip segment starts here
+live_end = live_start + 15.5 + 24.0    # Beat Jam segment ends here
+duck = f"0.28*(1-clip((t-{live_start - 1.2})/1.2,0,1)*clip(({live_end + 0.3}-t)/1.2,0,1))*clip(t/1.5,0,1)"
 final = os.path.join(OUT, 'DownBeat-demo.mp4')
-subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', joined, '-c:v', 'copy', '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
-                '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-movflags', '+faststart', final], check=True)
+subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', joined, '-stream_loop', '-1', '-i', bed,
+                '-filter_complex', f"[1:a]volume='{duck}':eval=frame[b];[0:a][b]amix=inputs=2:duration=first:normalize=0,"
+                                   "loudnorm=I=-16:TP=-1.5:LRA=11[a]",
+                '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
+                '-movflags', '+faststart', final], check=True)
 print('wrote', final)
