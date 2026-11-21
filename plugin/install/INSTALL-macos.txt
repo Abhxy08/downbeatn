@@ -1,0 +1,20 @@
+DownBeat for macOS (Intel + Apple Silicon, macOS 11+)
+=====================================================
+
+The build is not notarized by Apple, so macOS quarantines it after download. Clear that once
+in Terminal (from inside this folder):
+
+    xattr -dr com.apple.quarantine .
+
+Standalone (quickest):
+  1. Open DownBeat.app. Allow microphone access and "local network" access when asked.
+  2. Options -> Audio/MIDI Settings: pick your output; untick "Mute audio input" to send your mic.
+  3. Click "Sign in", open the link shown, enter the code on the website.
+
+In a DAW:
+  VST3 (REAPER, Ableton Live, Bitwig, Cubase, Studio One...):
+      cp -R DownBeat.vst3 ~/Library/Audio/Plug-Ins/VST3/
+  AU (Logic Pro, GarageBand, Ableton Live):
+      cp -R DownBeat.component ~/Library/Audio/Plug-Ins/Components/
+      killall -9 AudioComponentRegistrar   # makes Logic see it without a reboot
+  Then rescan plugins in your DAW and add "DownBeat" to a track.

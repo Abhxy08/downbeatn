@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Mix Doctor uploads and split-sheet PDFs are written and served by the backend
+// (Admin SDK, which bypasses these rules). No direct client access.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

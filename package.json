@@ -1,0 +1,27 @@
+{
+  "name": "downbeat-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DownBeat: Cross-DAW Live Collaboration VST3/AU Plugin with Google AI Agents",
+  "workspaces": [
+    "server",
+    "web",
+    "relay"
+  ],
+  "scripts": {
+    "dev:server": "npm run --workspace=server dev",
+    "dev:web": "npm run --workspace=web dev",
+    "dev:relay": "npm run --workspace=relay dev",
+    "build:server": "npm run --workspace=server build",
+    "build:web": "npm run --workspace=web build",
+    "build:relay": "npm run --workspace=relay build",
+    "build:all": "npm run build:server && npm run build:relay && npm run build:web",
+    "test:server": "npm run --workspace=server test",
+    "test:relay": "npm run --workspace=relay test",
+    "test:all": "npm run test:server && npm run test:relay",
+    "emulators": "firebase emulators:start --only auth,firestore,storage"
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.31.0"
+  }
+}

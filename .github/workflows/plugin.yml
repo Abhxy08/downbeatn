@@ -1,0 +1,104 @@
+# Builds the DownBeat plugin (VST3 + Standalone, plus AU on macOS) for Windows, macOS and Linux,
+# runs the unit tests, and uploads a ready-to-install zip per OS.
+#
+# Set the repository variable SERVER_URL (Settings -> Secrets and variables -> Actions -> Variables)
+# to the Cloud Run URL so the plugin connects to the deployed backend with no setup.
+# Pushing a tag like v0.1.0 also attaches the zips to a GitHub Release (a public download link).
+name: plugin
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths: ['plugin/**', '.github/workflows/plugin.yml']
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: Backend URL baked into the plugin (defaults to the SERVER_URL repo variable)
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: windows }
+          - { os: macos-latest, name: macos }
+          - { os: ubuntu-22.04, name: linux }
+    runs-on: ${{ matrix.os }}
+    env:
+      SERVER_URL: ${{ inputs.server_url || vars.SERVER_URL || 'http://localhost:8088' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux dependencies
+        if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev libcurl4-openssl-dev libfreetype6-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev \
+            libgl1-mesa-dev libssl-dev libsecret-1-dev pkg-config ninja-build
+
+      - name: Configure
+        shell: bash
+        run: |
+          EXTRA=()
+          [[ "${{ matrix.name }}" == "macos" ]] && EXTRA+=(-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64")
+          [[ "${{ matrix.name }}" == "linux" ]] && EXTRA+=(-G Ninja)
+          cmake -S plugin -B build -DCMAKE_BUILD_TYPE=Release -DDOWNBEAT_DEFAULT_SERVER_URL="$SERVER_URL" "${EXTRA[@]}"
+
+      - name: Build
+        shell: bash
+        run: |
+          TARGETS=(DownBeat_VST3 DownBeat_Standalone downbeat_tests)
+          [[ "${{ matrix.name }}" == "macos" ]] && TARGETS+=(DownBeat_AU)
+          cmake --build build --config Release --parallel 4 --target "${TARGETS[@]}"
+
+      - name: Unit tests
+        shell: bash
+        run: |
+          BIN=$(find build -type f \( -name downbeat_tests -o -name downbeat_tests.exe \) | head -1)
+          "$BIN"
+
+      - name: Package
+        shell: bash
+        run: |
+          ART=$(find build -type d -name DownBeat_artefacts | head -1)
+          [[ -d "$ART/Release" ]] && ART="$ART/Release"
+          OUT="DownBeat-${{ matrix.name }}"
+          mkdir -p "$OUT"
+          cp -R "$ART/VST3/DownBeat.vst3" "$OUT/"
+          case "${{ matrix.name }}" in
+            windows) cp "$ART/Standalone/DownBeat.exe" "$OUT/" ;;
+            macos)
+              cp -R "$ART/Standalone/DownBeat.app" "$OUT/"
+              cp -R "$ART/AU/DownBeat.component" "$OUT/"
+              # Ad-hoc signature: required for Apple Silicon to load the binaries at all
+              for b in "$OUT"/DownBeat.app "$OUT"/DownBeat.vst3 "$OUT"/DownBeat.component; do
+                codesign --force --deep --sign - "$b"
+              done ;;
+            linux) cp "$ART/Standalone/DownBeat" "$OUT/" ;;
+          esac
+          cp "plugin/install/INSTALL-${{ matrix.name }}.txt" "$OUT/INSTALL.txt"
+          echo "$SERVER_URL" > "$OUT/server-url.txt"
+          if [[ "${{ matrix.name }}" == "windows" ]]; then
+            7z a -tzip "$OUT.zip" "$OUT" >/dev/null
+          else
+            # ditto keeps macOS bundle metadata intact
+            if command -v ditto >/dev/null; then ditto -c -k --keepParent "$OUT" "$OUT.zip"; else zip -qry "$OUT.zip" "$OUT"; fi
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DownBeat-${{ matrix.name }}
+          path: DownBeat-${{ matrix.name }}.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: DownBeat-${{ matrix.name }}.zip

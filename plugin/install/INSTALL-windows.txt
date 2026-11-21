@@ -1,0 +1,16 @@
+DownBeat for Windows
+====================
+
+Standalone (quickest):
+  1. Double-click DownBeat.exe.
+     If Windows SmartScreen says "Windows protected your PC": click "More info" -> "Run anyway".
+     (The build is not code-signed; this is expected for a hackathon prototype.)
+  2. Allow network access if the Windows Firewall asks (needed for peer-to-peer audio).
+  3. Options -> Audio/MIDI Settings: pick your headphones / interface. Untick "Mute audio input"
+     if you want your microphone sent to collaborators.
+  4. Click "Sign in", open the link shown, enter the code on the website.
+
+In a DAW (REAPER, Ableton Live, FL Studio, Bitwig, Cubase, Studio One...):
+  1. Copy the folder DownBeat.vst3 to  C:\Program Files\Common Files\VST3\
+  2. Rescan plugins in your DAW (REAPER: Options -> Preferences -> Plug-ins -> VST -> Re-scan).
+  3. Add "DownBeat" as an effect on a track.

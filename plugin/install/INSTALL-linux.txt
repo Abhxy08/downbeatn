@@ -1,0 +1,7 @@
+DownBeat for Linux (x86_64)
+===========================
+
+Standalone:   chmod +x DownBeat && ./DownBeat
+VST3:         mkdir -p ~/.vst3 && cp -r DownBeat.vst3 ~/.vst3/   then rescan in your DAW.
+
+If you hear nothing in the Standalone: Options -> Audio/MIDI Settings -> output channels 1+2.

@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// DownBeat's web app and plugin never read/write Firestore directly: everything goes
+// through the Cloud Run backend, which uses the Admin SDK (rules don't apply to it).
+// So clients get read-only access to their own data at most, and no writes.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function isMember(sessionId) {
+      let s = get(/databases/$(database)/documents/sessions/$(sessionId)).data;
+      return signedIn() && (request.auth.uid in s.members || request.auth.uid == s.ownerId);
+    }
+
+    // Own profile (read-only). Paired-device records hold token hashes: never readable.
+    match /users/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow write: if false;
+      match /devices/{deviceId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Pairing records are only used by the backend.
+    match /pairings/{pairingId} {
+      allow read, write: if false;
+    }
+
+    // Sessions and their event log / AI reports: members may read, nobody writes directly.
+    match /sessions/{sessionId} {
+      allow read: if signedIn() && (request.auth.uid in resource.data.members || request.auth.uid == resource.data.ownerId);
+      allow write: if false;
+
+      match /events/{eventId} {
+        allow read: if isMember(sessionId);
+        allow write: if false;
+      }
+      match /reports/{reportId} {
+        allow read: if isMember(sessionId);
+        allow write: if false;
+      }
+      match /crdt/{docId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
