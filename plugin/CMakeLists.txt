@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
 # macOS: one universal build that runs on Intel and Apple Silicon, macOS 11+
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "")
+# CMake 4 refuses dependencies that declare cmake_minimum_required < 3.5
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "")
 project(DownBeat VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -33,11 +35,13 @@ set(USE_TLS ON CACHE BOOL "" FORCE)
 if(WIN32)
     set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
     set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(GEN_FILES OFF CACHE BOOL "" FORCE)
     set(MBEDTLS_FATAL_WARNINGS OFF CACHE BOOL "" FORCE)
+    set(MBEDTLS_USER_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/mbedtls_user_config.h" CACHE FILEPATH "" FORCE)
     FetchContent_Declare(
         mbedtls
         GIT_REPOSITORY https://github.com/Mbed-TLS/mbedtls.git
-        GIT_TAG v2.28.9
+        GIT_TAG v3.6.2
         GIT_SHALLOW TRUE
     )
     FetchContent_MakeAvailable(mbedtls)
@@ -55,6 +59,10 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(ixwebsocket)
+if(WIN32)
+    # IXWebSocket only enables its mbedTLS 3 code path when it finds mbedTLS itself
+    target_compile_definitions(ixwebsocket PRIVATE IXWEBSOCKET_USE_MBED_TLS_MIN_VERSION_3)
+endif()
 
 # Ableton Link (tempo sync with Link-enabled DAWs on the local network).
 # Header-only; SOURCE_SUBDIR points at a folder without CMakeLists so Link's own
